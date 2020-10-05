@@ -5,11 +5,14 @@ var logger = require('morgan');
 const passport = require('passport');
 const config = require('./config');
 
+
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 const campsiteRouter = require('./routes/campsiteRouter');
 const promotionRouter = require('./routes/promotionRouter');
 const partnerRouter = require('./routes/partnerRouter');
+const uploadRouter = require('./routes/uploadRouter');
+const favoriteRouter = require("./routes/favoriteRouter");
 
 const mongoose = require('mongoose');
 
@@ -21,11 +24,45 @@ const connect = mongoose.connect(url, {
     useUnifiedTopology: true
 });
 
+
+function auth(req, res, next) {
+  console.log(req.user);
+
+  if (!req.session.user) {
+    const authHeader = req.headers.authorization;
+    if (!req.user) {
+      const err = new Error("You are not authenticated!");
+      err.status = 401;
+      return next(err);
+    } else {
+      return next();
+    }
+  } else {
+    if (req.session.user === "admin") {
+      console.log("req.session:", req.session);
+      return next();
+    } else {
+      const err = new Error("You are not authenticated!");
+      err.status = 401;
+      return next(err);
+    }
+  }
+}
+
 connect.then(() => console.log('Connected correctly to server'), 
     err => console.log(err)
 );
 
 var app = express();
+
+app.all('*', (req, res, next) => {
+  if (req.secure) {
+    return next();
+  } else {
+      console.log(`Redirecting to: https://${req.hostname}:${app.get('secPort')}${req.url}`);
+      res.redirect(301, `https://${req.hostname}:${app.get('secPort')}${req.url}`);
+  }
+});
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -46,6 +83,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/campsites', campsiteRouter);
 app.use('/promotions', promotionRouter);
 app.use('/partners', partnerRouter);
+app.use('/imageUpload', uploadRouter);
+app.use("/favorites", favoriteRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
